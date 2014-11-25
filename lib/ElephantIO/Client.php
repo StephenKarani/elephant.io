@@ -30,6 +30,10 @@ class Client {
     const TYPE_ERROR        = 7;
     const TYPE_NOOP         = 8;
 
+	public $origin = '*';
+	public $cookie;
+	public $sendCookie = false;
+
     private $socketIOUrl;
     private $serverHost;
     private $serverPort = 80;
@@ -325,6 +329,21 @@ class Client {
         $this->handshakeTimeout = $delay;
     }
 
+	/**
+	 * @return string
+	 */
+	private function getOrigin() {
+		$origin = "Origin: *\n\n";
+		if ($this->origin) {
+			if (strpos($this->origin, 'http://') === false) {
+				$origin = sprintf("Origin: http://%s\n\n", $this->origin);
+			} else {
+				$origin = sprintf("Origin: %s\n\n", $this->origin);
+			}
+		}
+		return $origin;
+	}
+
     /**
      * Handshake with socket.io server
      *
@@ -346,11 +365,25 @@ class Client {
             curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->handshakeTimeout);
         }
 
+	    if ($this->origin) {
+		    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+			    $this->getOrigin()
+		    ));
+	    }
+
+	    if ($this->sendCookie && $this->cookie) {
+		    curl_setopt($ch, CURLOPT_COOKIE, $this->cookie);
+	    }
+
         $res = curl_exec($ch);
 
         if ($res === false || $res === '') {
             throw new \Exception(curl_error($ch));
         }
+
+	    if ($res == 'handshake bad origin') {
+		    throw new \Exception('Handshake error: bad origin');
+	    }
 
         $sess = explode(':', $res);
         $this->session['sid'] = $sess[0];
@@ -386,7 +419,10 @@ class Client {
         $out .= "Connection: Upgrade\r\n";
         $out .= "Sec-WebSocket-Key: ".$key."\r\n";
         $out .= "Sec-WebSocket-Version: 13\r\n";
-        $out .= "Origin: *\r\n\r\n";
+	    if ($this->sendCookie && $this->cookie) {
+		    $out .= "Cookie: " . $this->cookie . "\r\n";
+	    }
+	    $out .= $this->getOrigin();
 
         fwrite($this->fd, $out);
 
