@@ -44,6 +44,8 @@ class Client {
     private $handshakeTimeout = null;
 	private $endpoints = array();
 
+	private $sslCert;
+
     public function __construct($socketIOUrl, $socketIOPath = 'socket.io', $protocol = 1, $read = true, $checkSslPeer = true, $debug = false) {
         $this->socketIOUrl = $socketIOUrl.'/'.$socketIOPath.'/'.(string)$protocol;
         $this->read = $read;
@@ -51,6 +53,10 @@ class Client {
         $this->parseUrl();
         $this->checkSslPeer = $checkSslPeer;
     }
+
+	public function setSslCert($cert) {
+		$this->sslCert = $cert;
+	}
 
     /**
      * Initialize a new connection
@@ -332,6 +338,9 @@ class Client {
         if (!$this->checkSslPeer)
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
+	    if ($this->sslCert) {
+		    curl_setopt($ch, CURLOPT_CAINFO, $this->sslCert);
+	    }
         if (!is_null($this->handshakeTimeout)) {
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $this->handshakeTimeout);
             curl_setopt($ch, CURLOPT_TIMEOUT_MS, $this->handshakeTimeout);
